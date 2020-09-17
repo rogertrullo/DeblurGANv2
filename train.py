@@ -39,7 +39,7 @@ class Trainer:
 
     def train(self):
         self._init_params()
-        for epoch in range(0, config['num_epochs']):
+        for epoch in range(0, self.config['num_epochs']):
             if (epoch == self.warmup_epochs) and not (self.warmup_epochs == 0):
                 self.netG.module.unfreeze()
                 self.optimizer_G = self._get_optim(self.netG.parameters())
@@ -65,7 +65,7 @@ class Trainer:
         for param_group in self.optimizer_G.param_groups:
             lr = param_group['lr']
 
-        epoch_size = config.get('train_batches_per_epoch') or len(self.train_dataset)
+        epoch_size = self.config.get('train_batches_per_epoch') or len(self.train_dataset)
         tq = tqdm.tqdm(self.train_dataset, total=epoch_size)
         tq.set_description('Epoch {}, lr {}'.format(epoch, lr))
         i = 0
@@ -97,7 +97,7 @@ class Trainer:
 
     def _validate(self, epoch):
         self.metric_counter.clear()
-        epoch_size = config.get('val_batches_per_epoch') or len(self.val_dataset)
+        epoch_size = self.config.get('val_batches_per_epoch') or len(self.val_dataset)
         tq = tqdm.tqdm(self.val_dataset, total=epoch_size)
         tq.set_description('Validation')
         i = 0

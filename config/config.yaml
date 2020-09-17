@@ -3,8 +3,8 @@ project: deblur_gan
 experiment_desc: fpn
 
 train:
-  files_a: ./datasets/carpet
-  files_b: ./datasets/carpet
+  files_a: /kaggle/working/carpet
+  files_b: /kaggle/working/carpet
   size: &SIZE 256
   crop: random
   preload: &PRELOAD false
@@ -28,8 +28,8 @@ train:
     - name: sharpen
 
 val:
-  files_a: ./datasets/carpet
-  files_b: ./datasets/carpet
+  files_a: /kaggle/working/carpet
+  files_b: /kaggle/working/carpet
   size: *SIZE
   scope: geometric
   crop: center
@@ -57,7 +57,7 @@ train_batches_per_epoch: 1000
 val_batches_per_epoch: 100
 batch_size: 1
 image_size: [128, 128]
-path_weights_cae: /path_to/ckpt_1572.pth
+path_weights_cae: /kaggle/input/weights/ckpt_1572.pth
 
 optimizer:
   name: adam

@@ -74,7 +74,7 @@ class Trainer:
             inputs, targets= data
             inputs=inputs.cuda()
             targets=targets.cuda()
-            inputs=self.model_ae(inputs)
+            inputs=self.model_ae(inputs).detach()
             outputs = self.netG(inputs)
             loss_D = self._update_d(outputs, targets)
             self.optimizer_G.zero_grad()
@@ -106,7 +106,7 @@ class Trainer:
             inputs, targets= data
             inputs=inputs.cuda()
             targets=targets.cuda()
-            inputs=self.model_ae(inputs)
+            inputs=self.model_ae(inputs).detach()
             
             outputs = self.netG(inputs)
             loss_content = self.criterionG(outputs, targets)

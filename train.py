@@ -10,12 +10,15 @@ from joblib import cpu_count
 from torch.utils.data import DataLoader
 
 from adversarial_trainer import GANFactory
-from dataset import PairedDataset
+from dataset import PairedDataset, CarpetInMemory
 from metric_counter import MetricCounter
 from models.losses import get_loss
-from models.models import get_model
+from models.models import get_model, CAE
 from models.networks import get_nets
 from schedulers import LinearDecay, WarmRestart
+
+from torchvision import transforms
+
 
 cv2.setNumThreads(0)
 
@@ -28,6 +31,11 @@ class Trainer:
         self.adv_lambda = config['model']['adv_lambda']
         self.metric_counter = MetricCounter(config['experiment_desc'])
         self.warmup_epochs = config['warmup_num']
+        
+        self.model_ae =  CAE(inchans=3, nz=100).cuda()
+        checkpoint = torch.load(config['path_weights_cae'], map_location=torch.device('cuda'))
+        self.model_ae.load_state_dict(checkpoint['model_state_dict'])
+        self.model_ae.eval()
 
     def train(self):
         self._init_params()
@@ -62,7 +70,11 @@ class Trainer:
         tq.set_description('Epoch {}, lr {}'.format(epoch, lr))
         i = 0
         for data in tq:
-            inputs, targets = self.model.get_input(data)
+            #inputs, targets = self.model.get_input(data)
+            inputs, targets= data
+            inputs=inputs.cuda()
+            targets=targets.cuda()
+            inputs=self.model_ae(inputs)
             outputs = self.netG(inputs)
             loss_D = self._update_d(outputs, targets)
             self.optimizer_G.zero_grad()
@@ -90,7 +102,12 @@ class Trainer:
         tq.set_description('Validation')
         i = 0
         for data in tq:
-            inputs, targets = self.model.get_input(data)
+            #inputs, targets = self.model.get_input(data)
+            inputs, targets= data
+            inputs=inputs.cuda()
+            targets=targets.cuda()
+            inputs=self.model_ae(inputs)
+            
             outputs = self.netG(inputs)
             loss_content = self.criterionG(outputs, targets)
             loss_adv = self.adv_trainer.loss_g(outputs, targets)
@@ -172,10 +189,15 @@ if __name__ == '__main__':
         config = yaml.load(f)
 
     batch_size = config.pop('batch_size')
-    get_dataloader = partial(DataLoader, batch_size=batch_size, num_workers=cpu_count(), shuffle=True, drop_last=True)
+    #get_dataloader = partial(DataLoader, batch_size=batch_size, num_workers=cpu_count(), shuffle=True, drop_last=True)
 
-    datasets = map(config.pop, ('train', 'val'))
-    datasets = map(PairedDataset.from_config, datasets)
-    train, val = map(get_dataloader, datasets)
-    trainer = Trainer(config, train=train, val=val)
+    #datasets = map(config.pop, ('train', 'val'))
+    #datasets = map(PairedDataset.from_config, datasets)
+    #train, val = map(get_dataloader, datasets)
+    
+    transformation = transforms.Compose([ transforms.RandomRotation(20),transforms.RandomCrop(128),transforms.ToTensor()])
+    trainLoader  = DataLoader(CarpetInMemory(root=config['train']['files_a'], resize=512,region_selection_transformation=transformation, 
+                                         sample=10000), shuffle=True, batch_size=batch_size, num_workers=0, pin_memory=True)
+    
+    trainer = Trainer(config, train=trainLoader, val=trainLoader)
     trainer.train()

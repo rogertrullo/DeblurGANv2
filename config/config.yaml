@@ -3,8 +3,8 @@ project: deblur_gan
 experiment_desc: fpn
 
 train:
-  files_a: &FILES_A /datasets/my_dataset/**/*.jpg
-  files_b: *FILES_A
+  files_a: ./datasets/carpet
+  files_b: ./datasets/carpet
   size: &SIZE 256
   crop: random
   preload: &PRELOAD false
@@ -28,8 +28,8 @@ train:
     - name: sharpen
 
 val:
-  files_a: *FILES_A
-  files_b: *FILES_A
+  files_a: ./datasets/carpet
+  files_b: ./datasets/carpet
   size: *SIZE
   scope: geometric
   crop: center
@@ -56,7 +56,8 @@ num_epochs: 200
 train_batches_per_epoch: 1000
 val_batches_per_epoch: 100
 batch_size: 1
-image_size: [256, 256]
+image_size: [128, 128]
+path_weights_cae: /path_to/ckpt_1572.pth
 
 optimizer:
   name: adam

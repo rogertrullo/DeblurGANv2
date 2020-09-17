@@ -55,7 +55,7 @@ model:
 num_epochs: 200
 train_batches_per_epoch: 1000
 val_batches_per_epoch: 100
-batch_size: 1
+batch_size: 64
 image_size: [128, 128]
 path_weights_cae: /kaggle/input/weights/ckpt_1572.pth
 

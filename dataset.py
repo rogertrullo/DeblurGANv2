@@ -4,7 +4,8 @@ from functools import partial
 from glob import glob
 from hashlib import sha1
 from typing import Callable, Iterable, Optional, Tuple
-
+from torchvision import transforms
+import torch
 import cv2
 import numpy as np
 from glog import logger
@@ -140,3 +141,94 @@ class PairedDataset(Dataset):
                              normalize_fn=normalize_fn,
                              transform_fn=transform_fn,
                              verbose=verbose)
+    
+    
+class CarpetTest(Dataset):
+    TYPE=['color',  'cut',  'good',  'hole',	'metal_contamination',  'thread']
+    def __init__(self, root, resize=None, transformation=None, normalize=True, crop=128,patch_based=True):
+        gt_root_path = os.path.join(root,'ground_truth')
+        imgs_rooth_path = os.path.join(root,'test')
+        self.normalize= normalize
+        if resize is not None: 
+            self.resize=[resize,resize]
+            open_transform = transforms.Compose([transforms.Lambda(lambda img:imread(img)), transforms.ToTensor(),
+                                                  transforms.ToPILImage(), transforms.Resize(self.resize)])
+            gt_transform = transforms.Compose([transforms.Lambda(lambda img:imread(img)),
+                                                  transforms.ToPILImage(), transforms.Resize(self.resize)])
+        else:  
+
+            open_transform = transforms.Compose([transforms.Lambda(lambda img:imread(img)), transforms.ToTensor(),
+                                                  transforms.ToPILImage()])
+            gt_transform = transforms.Compose([transforms.Lambda(lambda img:imread(img)),
+                                                    transforms.ToPILImage()])
+            self.resize= None
+        self.transformation = transformation if transformation is not None else transforms.ToTensor()
+        self.data = []
+        for ttype in self.TYPE:
+            gt_path_type = os.path.join(gt_root_path, ttype)
+            imgs_path_type = os.path.join(imgs_rooth_path, ttype)
+            for tmpi, (gtp, imgp) in enumerate(zip(sorted(glob(gt_path_type+'/*.png')) , sorted(glob(imgs_path_type+'/*.png')))):
+                if tmpi>8:
+                    break
+                gt, img = gt_transform(gtp), open_transform(imgp)
+                if self.resize is None:
+                    self.resize = [gt.shape[1],gt.shape[2]]
+                self.data.append((img, gt, ttype))
+        self.crop = crop
+        self.patch_based  = patch_based
+                
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self,i):
+        img, gt, label = self.data[i]
+        img = self.transformation(img)
+        img = NORMALIZE(img) if self.normalize else img
+        if self.patch_based:
+            img =F.unfold(img.unsqueeze(0), kernel_size=(self.crop, self.crop), stride=(self.crop, self.crop)).reshape(img.shape[0], self.crop, self.crop, -1).permute(3,0,1,2)
+        return img, self.transformation(gt), label
+
+class CarpetInMemory(Dataset):    
+    def __init__(self, root='data/carpet',  resize=512,  region_selection_transformation=None, sample=None,train=True,
+                 input_transformation=None, on_output_trans=False, normalize=False):
+        trainpath=os.path.join(root, 'train')
+        self.training_paths=sorted(glob(trainpath+'/*/*.png'))
+        self.resize=[resize,resize]
+        self.train, self.normalize= train, normalize
+        init_trf= transforms.Compose([transforms.ToPILImage(), transforms.Resize(self.resize)])
+        self.region_selection_transformation = region_selection_transformation if region_selection_transformation is not None else transforms.ToTensor()
+
+        self.input_transformation = input_transformation if input_transformation is not None else transforms.Lambda(lambda x: x)
+        self.on_output_trans= on_output_trans
+        self.data = []
+
+        npatches_per_image=np.ceil(sample/len(self.training_paths)).astype(np.int)
+
+        for idimage, p in enumerate(self.training_paths):
+            if not train:                
+                if (idimage%10)==0: print('reading img',os.path.basename(p))
+                rgb_img=imread(p)    
+                img_ini=init_trf(rgb_img)
+                self.data.append(img_ini)
+                if idimage>=20:
+                    break
+            else:
+                
+                if (idimage%50)==0: 
+                    print('reading img',os.path.basename(p))
+                rgb_img=imread(p)    
+                img_ini=init_trf(rgb_img)
+                i=0
+
+                while i<npatches_per_image:
+                    x=self.region_selection_transformation(img_ini)
+                    if torch.min(x)==0:#avoid air...
+                        continue
+
+                    i+=1
+                    self.data.append(x)
+
+    def __getitem__(self, i):
+        return self.data[i], self.data[i]
+
+    def __len__(self):
+        return len(self.data)

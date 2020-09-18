@@ -343,7 +343,7 @@ def inceptionresnetv2(num_classes=1000, pretrained='imagenet'):
 
         # both 'imagenet'&'imagenet+background' are loaded from same parameters
         model = InceptionResNetV2(num_classes=1001)
-        model.load_state_dict(settings['url'])
+        model.load_state_dict(torch.load(settings['url']))
 
         if pretrained == 'imagenet':
             new_last_linear = nn.Linear(1536, 1000)
